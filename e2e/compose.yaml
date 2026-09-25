@@ -1,0 +1,72 @@
+# End-to-end environment: Kafbat UI with the plugin loaded, and a single-node Kafka.
+# Normally run through `./gradlew e2eTest`, which builds the plugin jar into build/e2e/plugins first.
+# For a manual look: ./gradlew e2eUp, then open http://localhost:${E2E_UI_PORT:-18080}.
+name: ui-serde-sbe-e2e
+
+services:
+  kafka:
+    image: apache/kafka:latest
+    ports:
+      - "${E2E_KAFKA_PORT:-19092}:19092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: INTERNAL://:9092,CONTROLLER://:9093,EXTERNAL://:19092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:${E2E_KAFKA_PORT:-19092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    healthcheck:
+      test: ["CMD", "/opt/kafka/bin/kafka-broker-api-versions.sh", "--bootstrap-server", "kafka:9092"]
+      interval: 3s
+      timeout: 10s
+      retries: 30
+
+  kafka-ui:
+    image: ${E2E_KAFKA_UI_IMAGE:-ghcr.io/kafbat/kafka-ui:latest}
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "${E2E_UI_PORT:-18080}:8080"
+    volumes:
+      - ../build/e2e/plugins:/plugins:ro
+      - ../src/test/resources/sbe:/schemas/trading:ro
+      - ./schemas:/schemas/e2e:ro
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+
+      # Configured through environment variables on purpose: this checks that Spring's relaxed binding
+      # maps PROPERTIES_SCHEMAFILES etc. onto the camelCase property names the serde asks for.
+      KAFKA_CLUSTERS_0_SERDE_0_NAME: SBE
+      KAFKA_CLUSTERS_0_SERDE_0_CLASSNAME: io.kafbat.ui.serde.sbe.SbeSerde
+      KAFKA_CLUSTERS_0_SERDE_0_FILEPATH: /plugins/ui-serde-sbe.jar
+      KAFKA_CLUSTERS_0_SERDE_0_TOPICVALUESPATTERN: "sbe-orders|sbe-bad"
+      KAFKA_CLUSTERS_0_SERDE_0_PROPERTIES_SCHEMAFILES: /schemas/trading/trading.xml
+      KAFKA_CLUSTERS_0_SERDE_0_PROPERTIES_DECIMALCONVENTIONS: fix,bigDecimal
+
+      KAFKA_CLUSTERS_0_SERDE_1_NAME: SBE batched
+      KAFKA_CLUSTERS_0_SERDE_1_CLASSNAME: io.kafbat.ui.serde.sbe.SbeSerde
+      KAFKA_CLUSTERS_0_SERDE_1_FILEPATH: /plugins/ui-serde-sbe.jar
+      KAFKA_CLUSTERS_0_SERDE_1_TOPICVALUESPATTERN: sbe-batched
+      KAFKA_CLUSTERS_0_SERDE_1_PROPERTIES_SCHEMAFILES: /schemas/trading/trading.xml
+      KAFKA_CLUSTERS_0_SERDE_1_PROPERTIES_MESSAGEOFFSET: 4
+      KAFKA_CLUSTERS_0_SERDE_1_PROPERTIES_MULTIPLEMESSAGESPERRECORD: "true"
+
+      # quotes.xml also has schema id 42, so it needs its own serde instance
+      KAFKA_CLUSTERS_0_SERDE_2_NAME: SBE quotes
+      KAFKA_CLUSTERS_0_SERDE_2_CLASSNAME: io.kafbat.ui.serde.sbe.SbeSerde
+      KAFKA_CLUSTERS_0_SERDE_2_FILEPATH: /plugins/ui-serde-sbe.jar
+      KAFKA_CLUSTERS_0_SERDE_2_TOPICVALUESPATTERN: sbe-quotes
+      KAFKA_CLUSTERS_0_SERDE_2_PROPERTIES_SCHEMAFILES: /schemas/e2e/quotes.xml
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP"]
+      interval: 3s
+      timeout: 5s
+      retries: 60

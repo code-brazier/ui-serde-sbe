@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Encodings trading.xml doesn't use, for decoding edge cases. The tests encode these messages by hand. -->
+<sbe:messageSchema
+        xmlns:sbe="http://fixprotocol.io/2016/sbe"
+        package="test.edge"
+        id="43"
+        version="1"
+        byteOrder="littleEndian">
+    <types>
+        <composite name="messageHeader">
+            <type name="blockLength" primitiveType="uint16"/>
+            <type name="templateId" primitiveType="uint16"/>
+            <type name="schemaId" primitiveType="uint16"/>
+            <type name="version" primitiveType="uint16"/>
+        </composite>
+        <composite name="Int32ExponentDecimal">
+            <type name="mantissa" primitiveType="int64"/>
+            <type name="exponent" primitiveType="int32"/>
+        </composite>
+        <composite name="Int64ExponentDecimal">
+            <type name="mantissa" primitiveType="int64"/>
+            <type name="exponent" primitiveType="int64"/>
+        </composite>
+        <composite name="Int32ScaleBigDecimal">
+            <type name="length" primitiveType="uint8"/>
+            <type name="mantissa" primitiveType="int8" length="4"/>
+            <type name="exponent" primitiveType="int32"/>
+        </composite>
+        <composite name="unknownCharsetEncoding">
+            <type name="length" primitiveType="uint16"/>
+            <type name="varData" primitiveType="uint8" length="0" characterEncoding="X-NO-SUCH-CHARSET"/>
+        </composite>
+    </types>
+
+    <!-- block: price 12 bytes, size 16, quantity 9 -->
+    <sbe:message name="WideDecimals" id="1">
+        <field name="price" id="1" type="Int32ExponentDecimal"/>
+        <field name="size" id="2" type="Int64ExponentDecimal"/>
+        <field name="quantity" id="3" type="Int32ScaleBigDecimal"/>
+    </sbe:message>
+
+    <sbe:message name="UnknownCharset" id="2">
+        <data name="text" id="1" type="unknownCharsetEncoding"/>
+    </sbe:message>
+</sbe:messageSchema>

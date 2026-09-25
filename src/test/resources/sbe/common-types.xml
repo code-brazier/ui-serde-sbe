@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<types>
+    <composite name="messageHeader" description="Message identifiers and length of message root">
+        <type name="blockLength" primitiveType="uint16"/>
+        <type name="templateId" primitiveType="uint16"/>
+        <type name="schemaId" primitiveType="uint16"/>
+        <type name="version" primitiveType="uint16"/>
+    </composite>
+
+    <composite name="groupSizeEncoding">
+        <type name="blockLength" primitiveType="uint16"/>
+        <type name="numInGroup" primitiveType="uint16"/>
+    </composite>
+
+    <composite name="varStringEncoding">
+        <type name="length" primitiveType="uint32" maxValue="1073741824"/>
+        <type name="varData" primitiveType="uint8" length="0" characterEncoding="UTF-8"/>
+    </composite>
+
+    <type name="Symbol" primitiveType="char" length="8"/>
+
+    <!-- decimal split into sibling fields, as some schemas do instead of using a composite -->
+    <type name="UnscaledLength" primitiveType="uint8" maxValue="16"/>
+    <type name="UnscaledBytes" primitiveType="int8" length="16"/>
+    <type name="Scale" primitiveType="uint8"/>
+</types>

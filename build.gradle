@@ -1,0 +1,184 @@
+plugins {
+    id 'java'
+    id 'com.gradleup.shadow' version '9.6.1'
+}
+
+group = 'io.kafbat.ui.serde'
+version = '0.1.0-SNAPSHOT'
+
+java {
+    // serde-api is published for Java 25, matching the JDK kafka-ui runs on
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
+
+compileJava {
+    options.compilerArgs += ['-Xlint:all', '-Werror']
+}
+
+repositories {
+    mavenCentral()
+    // serde-api depends on Confluent's kafka-clients build (x.y.z-ccs)
+    maven {
+        url = 'https://packages.confluent.io/maven/'
+        content { includeGroup 'org.apache.kafka' }
+    }
+}
+
+dependencies {
+    // provided by kafka-ui at runtime
+    compileOnly 'io.kafbat.ui:serde-api:1.1.0'
+
+    implementation 'uk.co.real-logic:sbe-tool:1.40.2'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.22.3'
+
+    testImplementation 'io.kafbat.ui:serde-api:1.1.0'
+    testImplementation platform('org.junit:junit-bom:6.1.3')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// Codecs for the test schema, used by the tests to encode messages the way a real producer would
+def testCodecsDir = layout.buildDirectory.dir('generated/sources/sbe/test/java')
+
+tasks.register('generateTestCodecs', JavaExec) {
+    group = 'sbe'
+    classpath = configurations.runtimeClasspath
+    mainClass = 'uk.co.real_logic.sbe.SbeTool'
+    def schema = file('src/test/resources/sbe/trading.xml')
+    inputs.files(fileTree('src/test/resources/sbe'))
+    outputs.dir(testCodecsDir)
+    args = [schema.path]
+    systemProperties = [
+        'sbe.output.dir'               : testCodecsDir.get().asFile.path,
+        'sbe.target.language'          : 'Java',
+        'sbe.xinclude.aware'           : 'true',
+        'sbe.validation.stop.on.error' : 'true',
+    ]
+    doFirst { delete(testCodecsDir) }
+}
+
+sourceSets.test.java.srcDir(testCodecsDir)
+compileTestJava.dependsOn('generateTestCodecs')
+
+test {
+    useJUnitPlatform {
+        excludeTags 'no-unsafe'
+    }
+    // only for the generated test encoders; the serde itself must work without it (see noUnsafeTest)
+    jvmArgs '--add-exports', 'java.base/jdk.internal.misc=ALL-UNNAMED'
+}
+
+// kafka-ui doesn't start the JVM with --add-exports, so check decoding works without Agrona's Unsafe access
+def noUnsafeTest = tasks.register('noUnsafeTest', Test) {
+    description = 'Runs decoding tests in a JVM without access to jdk.internal.misc.Unsafe, like kafka-ui.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'no-unsafe'
+    }
+}
+
+tasks.named('check') {
+    dependsOn noUnsafeTest
+}
+
+shadowJar {
+    archiveClassifier = 'jar-with-dependencies'
+    // kafka-ui loads each plugin in its own classloader, so bundled libraries don't need relocating
+    mergeServiceFiles()
+}
+
+tasks.named('assemble') {
+    dependsOn shadowJar
+}
+
+// ---- End-to-end: the plugin inside the published Kafbat UI image (needs Docker; not part of `check`) ----
+
+sourceSets {
+    e2e {
+        // reuses the generated test codecs and TestMessages
+        compileClasspath += sourceSets.test.output
+        runtimeClasspath += sourceSets.test.output
+    }
+}
+
+dependencies {
+    e2eImplementation 'uk.co.real-logic:sbe-tool:1.40.2'
+    e2eImplementation 'com.fasterxml.jackson.core:jackson-databind:2.22.3'
+    e2eImplementation 'org.apache.kafka:kafka-clients:4.3.1'
+    e2eImplementation platform('org.junit:junit-bom:6.1.3')
+    e2eImplementation 'org.junit.jupiter:junit-jupiter'
+    e2eRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    e2eRuntimeOnly 'org.slf4j:slf4j-nop:2.0.17'
+}
+
+def composeFile = file('e2e/compose.yaml')
+def e2eUiPort = providers.gradleProperty('e2eUiPort').orElse('18080')
+def e2eKafkaPort = providers.gradleProperty('e2eKafkaPort').orElse('19092')
+// -Pe2eKeep leaves the environment (and the test messages) running after e2eTest, to look at in the UI
+def e2eKeep = providers.gradleProperty('e2eKeep').isPresent()
+def compose = { String... args ->
+    ['docker', 'compose', '-f', composeFile.path] + args.toList()
+}
+
+def e2ePlugin = tasks.register('e2ePlugin', Copy) {
+    description = 'Copies the plugin jar to where e2e/compose.yaml mounts it from.'
+    from shadowJar
+    into layout.buildDirectory.dir('e2e/plugins')
+    rename { 'ui-serde-sbe.jar' }
+}
+
+def e2eUp = tasks.register('e2eUp', Exec) {
+    description = 'Starts Kafka and Kafbat UI (with the plugin) and waits until both are healthy.'
+    group = 'e2e'
+    dependsOn e2ePlugin
+    environment 'E2E_UI_PORT', e2eUiPort.get()
+    environment 'E2E_KAFKA_PORT', e2eKafkaPort.get()
+    commandLine compose('up', '-d', '--wait', '--force-recreate')
+}
+
+def e2eDown = tasks.register('e2eDown', Exec) {
+    description = 'Saves the Kafbat UI log to build/e2e and stops the e2e environment.'
+    group = 'e2e'
+    def logFile = layout.buildDirectory.file('e2e/kafka-ui.log')
+    doFirst {
+        logFile.get().asFile.withOutputStream { out ->
+            providers.exec {
+                commandLine compose('logs', '--no-color', 'kafka-ui')
+                ignoreExitValue = true
+            }.standardOutput.asBytes.get().with { out.write(it) }
+        }
+    }
+    commandLine compose('down', '-v')
+}
+
+tasks.named('e2eDown') {
+    onlyIf('e2eTest was run with -Pe2eKeep') {
+        !(e2eKeep && gradle.taskGraph.hasTask(':e2eTest'))
+    }
+}
+
+tasks.register('e2eTest', Test) {
+    description = 'Runs the end-to-end tests against the plugin loaded in Kafbat UI (needs Docker).'
+    group = 'e2e'
+    testClassesDirs = sourceSets.e2e.output.classesDirs
+    classpath = sourceSets.e2e.runtimeClasspath
+    useJUnitPlatform()
+    dependsOn e2eUp
+    finalizedBy e2eDown
+    // the producer encodes with the generated codecs, which use Agrona's buffers
+    jvmArgs '--add-exports', 'java.base/jdk.internal.misc=ALL-UNNAMED'
+    systemProperty 'e2e.uiPort', e2eUiPort.get()
+    systemProperty 'e2e.kafkaPort', e2eKafkaPort.get()
+    systemProperty 'e2e.composeFile', composeFile.path
+    // results depend on the running environment, not just the inputs
+    outputs.upToDateWhen { false }
+    doLast {
+        if (e2eKeep) {
+            logger.lifecycle("Kafbat UI: http://localhost:${e2eUiPort.get()}  (stop with ./gradlew e2eDown)")
+        }
+    }
+}
