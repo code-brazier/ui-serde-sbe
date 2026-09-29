@@ -32,8 +32,13 @@ final class JsonTreeListener implements TokenListener {
   private static final JsonNodeFactory NODES = JsonNodeFactory.instance;
 
   private final Deque<ObjectNode> stack = new ArrayDeque<>();
+  private final GroupListener groupListener;
   private ObjectNode root;
   private int compositeLevel;
+
+  JsonTreeListener(final GroupListener groupListener) {
+    this.groupListener = groupListener;
+  }
 
   ObjectNode result() {
     return root;
@@ -56,6 +61,8 @@ final class JsonTreeListener implements TokenListener {
   @Override
   public void onEncoding(final Token fieldToken, final DirectBuffer buffer, final int index, final Token typeToken,
                          final int actingVersion) {
+    groupListener.onFieldIndex(index);
+
     final String name = compositeLevel > 0 ? typeToken.name() : fieldToken.name();
     final Encoding encoding = typeToken.encoding();
     final PrimitiveValue constOrAbsent = constOrNotPresentValue(fieldToken, typeToken, actingVersion);
@@ -77,12 +84,13 @@ final class JsonTreeListener implements TokenListener {
       current().set(name, constOrAbsent != null
           ? primitive(constOrAbsent, encoding)
           : primitive(buffer, index, encoding, typeToken.isOptionalEncoding()));
-    }
-  }
+    }  }
 
   @Override
   public void onEnum(final Token fieldToken, final DirectBuffer buffer, final int index, final List<Token> tokens,
                      final int fromIndex, final int toIndex, final int actingVersion) {
+    groupListener.onFieldIndex(index);
+
     final String name = determineName(0, fieldToken, tokens, fromIndex);
     if (fieldToken.isConstantEncoding()) {
       // constant enum fields reference a value as "EnumType.VALUE"
@@ -111,12 +119,13 @@ final class JsonTreeListener implements TokenListener {
       current().put(name, String.valueOf((char) raw));
     } else {
       current().put(name, raw);
-    }
-  }
+    }  }
 
   @Override
   public void onBitSet(final Token fieldToken, final DirectBuffer buffer, final int index, final List<Token> tokens,
                        final int fromIndex, final int toIndex, final int actingVersion) {
+    groupListener.onFieldIndex(index);
+
     final Token typeToken = tokens.get(fromIndex + 1);
     final PrimitiveValue absent = constOrNotPresentValue(fieldToken, typeToken, actingVersion);
     final long raw = absent != null ? absent.longValue() : Types.getLong(buffer, index, typeToken.encoding());
@@ -127,36 +136,36 @@ final class JsonTreeListener implements TokenListener {
       if ((raw & (1L << choice.encoding().constValue().longValue())) != 0) {
         choices.add(choice.name());
       }
-    }
-  }
+    }  }
 
   @Override
   public void onBeginComposite(final Token fieldToken, final List<Token> tokens, final int fromIndex,
                                final int toIndex) {
     ++compositeLevel;
-    stack.push(current().putObject(determineName(1, fieldToken, tokens, fromIndex)));
-  }
+    stack.push(current().putObject(determineName(1, fieldToken, tokens, fromIndex)));  }
 
   @Override
   public void onEndComposite(final Token fieldToken, final List<Token> tokens, final int fromIndex,
                              final int toIndex) {
     --compositeLevel;
-    stack.pop();
-  }
+    stack.pop();  }
 
   @Override
   public void onGroupHeader(final Token token, final int numInGroup) {
     current().putArray(token.name());
+    groupListener.onGroupHeader(token, numInGroup);
   }
 
   @Override
   public void onBeginGroup(final Token token, final int groupIndex, final int numInGroup) {
     stack.push(((ArrayNode) current().get(token.name())).addObject());
+    groupListener.onBeginGroup();
   }
 
   @Override
   public void onEndGroup(final Token token, final int groupIndex, final int numInGroup) {
     stack.pop();
+    groupListener.onEndGroup(groupIndex, numInGroup);
   }
 
   @Override

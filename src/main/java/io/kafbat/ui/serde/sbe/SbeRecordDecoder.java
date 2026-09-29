@@ -74,7 +74,14 @@ final class SbeRecordDecoder {
             .formatted(header.schemaId(), header.templateId()));
       }
 
-      final JsonTreeListener listener = new JsonTreeListener();
+      // the root fields follow the BEGIN_MESSAGE token
+      final int rootMinBlockLength = SbeSchemas.minBlockLength(tokens, 1, header.version());
+      if (header.blockLength() < rootMinBlockLength) {
+        throw new DecodeException("SBE message %s has block length %d, but version %d needs at least %d"
+            .formatted(tokens.getFirst().name(), header.blockLength(), header.version(), rootMinBlockLength));
+      }
+
+      final JsonTreeListener listener = new JsonTreeListener(new GroupListener(tokens, header.version()));
       position = OtfMessageDecoder.decode(buffer, position + headerDecoder.encodedLength(),
           header.version(), header.blockLength(), tokens, listener);
       if (position < 0) {

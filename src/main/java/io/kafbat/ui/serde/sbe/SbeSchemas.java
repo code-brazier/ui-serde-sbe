@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.xml.sax.InputSource;
 import uk.co.real_logic.sbe.ir.Ir;
+import uk.co.real_logic.sbe.ir.Signal;
 import uk.co.real_logic.sbe.ir.Token;
 import uk.co.real_logic.sbe.otf.OtfHeaderDecoder;
 import uk.co.real_logic.sbe.xml.IrGenerator;
@@ -77,6 +78,20 @@ final class SbeSchemas {
             ir.packageName() != null ? ir.packageName() : "schema", ir.id(), ir.version()))
         .sorted()
         .collect(Collectors.joining(", "));
+  }
+
+  static int minBlockLength(final List<Token> tokens, final int from, final int actingVersion) {
+    int min = 0;
+    for (int i = from; i < tokens.size() && tokens.get(i).signal() == Signal.BEGIN_FIELD; ) {
+      final Token field = tokens.get(i);
+      if (field.encodedLength() > 0 && field.version() <= actingVersion) {
+        min = Math.max(min, field.offset() + field.encodedLength());
+      }
+
+      // skip over the field's type tokens
+      i += field.componentTokenCount();
+    }
+    return min;
   }
 
   private static Ir parse(final Path file) {
