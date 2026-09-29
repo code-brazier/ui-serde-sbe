@@ -8,6 +8,8 @@ It handles everything in SBE: composites, enums, bitsets, repeating groups, var-
 fields, custom message headers, and messages written with an older version of the schema. Decoding only
 (messages can't be produced from the UI).
 
+This is an independent plugin, not affiliated with or endorsed by the Kafbat project.
+
 ## Build
 
 ```sh
@@ -44,7 +46,7 @@ kafka:
     - name: local
       serde:
         - name: SBE
-          className: io.kafbat.ui.serde.sbe.SbeSerde
+          className: io.github.codebrazier.kafbat.sbe.SbeSerde
           filePath: /plugins/ui-serde-sbe-0.1.0-jar-with-dependencies.jar
           topicValuesPattern: "trades.*"
           properties:
@@ -71,13 +73,13 @@ If several schemas use the same id, register the serde once per schema, each res
 ```yaml
       serde:
         - name: SBE trades
-          className: io.kafbat.ui.serde.sbe.SbeSerde
+          className: io.github.codebrazier.kafbat.sbe.SbeSerde
           filePath: /plugins/ui-serde-sbe.jar
           topicValuesPattern: "trades.*"
           properties:
             schemaFiles: /schemas/trades.xml
         - name: SBE orders
-          className: io.kafbat.ui.serde.sbe.SbeSerde
+          className: io.github.codebrazier.kafbat.sbe.SbeSerde
           filePath: /plugins/ui-serde-sbe.jar
           topicValuesPattern: "orders.*"
           properties:

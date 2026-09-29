@@ -1,4 +1,4 @@
-package io.kafbat.ui.serde.sbe;
+package io.github.codebrazier.kafbat.sbe;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;

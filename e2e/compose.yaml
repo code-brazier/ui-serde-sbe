@@ -45,14 +45,14 @@ services:
       # Configured through environment variables on purpose: this checks that Spring's relaxed binding
       # maps PROPERTIES_SCHEMAFILES etc. onto the camelCase property names the serde asks for.
       KAFKA_CLUSTERS_0_SERDE_0_NAME: SBE
-      KAFKA_CLUSTERS_0_SERDE_0_CLASSNAME: io.kafbat.ui.serde.sbe.SbeSerde
+      KAFKA_CLUSTERS_0_SERDE_0_CLASSNAME: io.github.codebrazier.kafbat.sbe.SbeSerde
       KAFKA_CLUSTERS_0_SERDE_0_FILEPATH: /plugins/ui-serde-sbe.jar
       KAFKA_CLUSTERS_0_SERDE_0_TOPICVALUESPATTERN: "sbe-orders|sbe-bad"
       KAFKA_CLUSTERS_0_SERDE_0_PROPERTIES_SCHEMAFILES: /schemas/trading/trading.xml
       KAFKA_CLUSTERS_0_SERDE_0_PROPERTIES_DECIMALCONVENTIONS: fix,bigDecimal
 
       KAFKA_CLUSTERS_0_SERDE_1_NAME: SBE batched
-      KAFKA_CLUSTERS_0_SERDE_1_CLASSNAME: io.kafbat.ui.serde.sbe.SbeSerde
+      KAFKA_CLUSTERS_0_SERDE_1_CLASSNAME: io.github.codebrazier.kafbat.sbe.SbeSerde
       KAFKA_CLUSTERS_0_SERDE_1_FILEPATH: /plugins/ui-serde-sbe.jar
       KAFKA_CLUSTERS_0_SERDE_1_TOPICVALUESPATTERN: sbe-batched
       KAFKA_CLUSTERS_0_SERDE_1_PROPERTIES_SCHEMAFILES: /schemas/trading/trading.xml
@@ -61,7 +61,7 @@ services:
 
       # quotes.xml also has schema id 42, so it needs its own serde instance
       KAFKA_CLUSTERS_0_SERDE_2_NAME: SBE quotes
-      KAFKA_CLUSTERS_0_SERDE_2_CLASSNAME: io.kafbat.ui.serde.sbe.SbeSerde
+      KAFKA_CLUSTERS_0_SERDE_2_CLASSNAME: io.github.codebrazier.kafbat.sbe.SbeSerde
       KAFKA_CLUSTERS_0_SERDE_2_FILEPATH: /plugins/ui-serde-sbe.jar
       KAFKA_CLUSTERS_0_SERDE_2_TOPICVALUESPATTERN: sbe-quotes
       KAFKA_CLUSTERS_0_SERDE_2_PROPERTIES_SCHEMAFILES: /schemas/e2e/quotes.xml

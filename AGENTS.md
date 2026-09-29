@@ -24,7 +24,7 @@ see `README.md`.
 
 ## Layout
 
-All in `src/main/java/io/kafbat/ui/serde/sbe/`:
+All in `src/main/java/io/github/codebrazier/kafbat/sbe/`:
 
 | Class | Role |
 |---|---|

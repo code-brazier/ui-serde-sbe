@@ -1,4 +1,4 @@
-package io.kafbat.ui.serde.sbe;
+package io.github.codebrazier.kafbat.sbe;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

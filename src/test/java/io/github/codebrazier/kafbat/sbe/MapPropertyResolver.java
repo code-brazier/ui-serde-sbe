@@ -1,4 +1,4 @@
-package io.kafbat.ui.serde.sbe;
+package io.github.codebrazier.kafbat.sbe;
 
 import io.kafbat.ui.serde.api.PropertyResolver;
 import java.util.Arrays;
