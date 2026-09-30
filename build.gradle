@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'io.github.code-brazier'
-version = '0.1.0-SNAPSHOT'
+version = '0.1.0'
 
 java {
     // serde-api is published for Java 25, matching the JDK kafka-ui runs on
