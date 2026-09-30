@@ -96,7 +96,7 @@ class KafkaUiE2eTest {
 
     for (final JsonNode message : messages) {
       assertEquals("SBE", message.get("valueSerde").asText());
-      assertTrue(message.get("value").asText().matches("[0-9a-f]+"), message.toString());
+      assertTrue(rawValue(message).asText().matches("[0-9a-f]+"), message.toString());
     }
     assertTrue(error(messages.get(0)).contains("truncated") || error(messages.get(0)).contains("out of bounds"),
         error(messages.get(0)));
@@ -128,7 +128,7 @@ class KafkaUiE2eTest {
 
   @Test
   void pluginIsOfferedAsThePreferredSerde() throws Exception {
-    final JsonNode suggestions = getJson("/api/clusters/local/topics/sbe-orders/serdes?use=DESERIALIZE");
+    final JsonNode suggestions = serdeSuggestions("sbe-orders");
 
     JsonNode sbe = null;
     for (final JsonNode serde : suggestions.get("value")) {
@@ -198,16 +198,33 @@ class KafkaUiE2eTest {
     return messages;
   }
 
-  private static JsonNode getJson(final String path) throws IOException, InterruptedException {
-    final HttpResponse<String> response = HTTP.send(
-        HttpRequest.newBuilder(URI.create(UI + path)).timeout(TIMEOUT).build(),
-        HttpResponse.BodyHandlers.ofString());
+  /**
+   * The serdes offered for a topic. Kafbat UI 1.5 moved this from {@code /topic/} to {@code /topics/}; supporting
+   * both lets the tests run against the oldest supported version too.
+   */
+  private static JsonNode serdeSuggestions(final String topic) throws IOException, InterruptedException {
+    final String encodedTopic = URLEncoder.encode(topic, StandardCharsets.UTF_8);
+    HttpResponse<String> response = getString("/api/clusters/local/topics/%s/serdes?use=DESERIALIZE".formatted(encodedTopic));
+    if (response.statusCode() == 404) {
+      response = getString("/api/clusters/local/topic/%s/serdes?use=DESERIALIZE".formatted(encodedTopic));
+    }
     assertEquals(200, response.statusCode(), response.body());
     return MAPPER.readTree(response.body());
   }
 
+  private static HttpResponse<String> getString(final String path) throws IOException, InterruptedException {
+    return HTTP.send(
+        HttpRequest.newBuilder(URI.create(UI + path)).timeout(TIMEOUT).build(),
+        HttpResponse.BodyHandlers.ofString());
+  }
+
+  /** The deserialized value as Kafbat UI returns it: {@code value}, or {@code content} before 1.5. */
+  private static JsonNode rawValue(final JsonNode message) {
+    return message.has("value") ? message.get("value") : message.get("content");
+  }
+
   private static JsonNode value(final JsonNode message) throws IOException {
-    return MAPPER.readTree(message.get("value").asText());
+    return MAPPER.readTree(rawValue(message).asText());
   }
 
   private static String error(final JsonNode message) {

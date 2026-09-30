@@ -16,7 +16,8 @@ This is an independent plugin, not affiliated with or endorsed by the Kafbat pro
 ./gradlew build
 ```
 
-This produces `build/libs/ui-serde-sbe-<version>-jar-with-dependencies.jar`. Requires JDK 25, like Kafbat UI.
+This produces `build/libs/ui-serde-sbe-<version>-jar-with-dependencies.jar`. Building needs JDK 25; the plugin runs
+on Java 17 or later, so it works with every Kafbat UI 1.x (1.0 runs on Java 17, 1.1 to 1.4 on 21, 1.5 onwards on 25).
 
 ### End-to-end test
 

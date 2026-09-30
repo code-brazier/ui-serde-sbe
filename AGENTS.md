@@ -13,7 +13,9 @@ see `README.md`.
 ./gradlew e2eTest        # plugin inside the real Kafbat UI image, via Docker (not part of `check`)
 ```
 
-- JDK 25 is required: `io.kafbat.ui:serde-api:1.1.0` is published for Java 25 only (kafka-ui runs on 25).
+- Builds with JDK 25, but `compileJava` targets Java 17 so the plugin loads in every Kafbat UI 1.x (1.0 runs on Java 17,
+  1.1 to 1.4 on 21, 1.5 onwards on 25). That's why it compiles against `io.kafbat.ui:serde-api:1.0.0` (Java 17): 1.1.0 is
+  compiled for 25 and only adds a default serializer method. Keep main code to Java 17 language features and APIs.
 - serde-api depends on Confluent's `kafka-clients` `x.y.z-ccs`, so `build.gradle` adds Confluent's Maven
   repo, limited to the `org.apache.kafka` group.
 - `compileJava` uses `-Xlint:all -Werror`, so deprecated Jackson APIs fail the build (e.g. use
@@ -76,8 +78,8 @@ log to `build/e2e/kafka-ui.log` before tearing the environment down; look there 
   recreates the containers (`--force-recreate`), so leftover state doesn't leak between runs.
 - Kafbat UI's topic list comes from statistics it refreshes periodically, so a brand-new topic can be missing
   from `/topics` for a few seconds. Reading messages works straight away, which is why the tests do that.
-- The plugin is compiled for Java 25. If `E2E_KAFKA_UI_IMAGE` points to an older Kafbat UI on an older JDK,
-  loading will fail with `UnsupportedClassVersionError`.
+- `E2E_KAFKA_UI_IMAGE` picks the Kafbat UI image (default `latest`). Before a release, also run against the oldest
+  supported version, which is on Java 17: `E2E_KAFKA_UI_IMAGE=ghcr.io/kafbat/kafka-ui:v1.0.0 ./gradlew e2eTest`.
 
 ## Test data
 

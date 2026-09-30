@@ -78,24 +78,24 @@ final class SbeRecordDecoder {
       final int rootMinBlockLength = SbeSchemas.minBlockLength(tokens, 1, header.version());
       if (header.blockLength() < rootMinBlockLength) {
         throw new DecodeException("SBE message %s has block length %d, but version %d needs at least %d"
-            .formatted(tokens.getFirst().name(), header.blockLength(), header.version(), rootMinBlockLength));
+            .formatted(tokens.get(0).name(), header.blockLength(), header.version(), rootMinBlockLength));
       }
 
       final JsonTreeListener listener = new JsonTreeListener(new GroupListener(tokens, header.version()));
       position = OtfMessageDecoder.decode(buffer, position + headerDecoder.encodedLength(),
           header.version(), header.blockLength(), tokens, listener);
       if (position < 0) {
-        throw new DecodeException("SBE message %s has lengths that overflow".formatted(tokens.getFirst().name()));
+        throw new DecodeException("SBE message %s has lengths that overflow".formatted(tokens.get(0).name()));
       }
       if (position > data.length) {
         throw new DecodeException("SBE message %s is truncated: needs %d bytes, record has %d"
-            .formatted(tokens.getFirst().name(), position, data.length));
+            .formatted(tokens.get(0).name(), position, data.length));
       }
       messages.add(DecimalConvention.apply(listener.result(), decimalConventions, maxDecimalExponent));
 
       if (firstHeader == null) {
         firstHeader = header;
-        firstName = tokens.getFirst().name();
+        firstName = tokens.get(0).name();
       }
     } while (multipleMessages && position < data.length);
 
